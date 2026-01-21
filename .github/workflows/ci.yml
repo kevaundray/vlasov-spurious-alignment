@@ -30,14 +30,11 @@ jobs:
       - name: Build
         run: go build -o alignment-test .
 
-      - name: Run multiple times to trigger potential alignment panic
+      - name: Run with varying stack depths to test all alignments
         run: |
-          ITERATIONS=${{ github.event.inputs.iterations || '100000' }}
-          echo "Running $ITERATIONS iterations"
-          for i in $(seq 1 $ITERATIONS); do
-            if (( i % 1000 == 0 )); then
-              echo "Run $i"
-            fi
-            ./alignment-test
+          echo "Testing depths 0-31 to cover all possible alignments mod 32"
+          for depth in $(seq 0 31); do
+            echo "=== Depth $depth ==="
+            ./alignment-test $depth
           done
-          echo "Completed all $ITERATIONS runs without panic"
+          echo "All depths passed without panic"

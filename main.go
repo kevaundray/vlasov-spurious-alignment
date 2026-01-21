@@ -3,6 +3,11 @@ package main
 /*
 #cgo CFLAGS: -mavx2
 #include <immintrin.h>
+
+// Use _mm256_load_si256 which REQUIRES 32-byte alignment (crashes on misalignment)
+__m256i aligned_load(__m256i* ptr) {
+    return _mm256_load_si256(ptr);
+}
 */
 import "C"
 import (
@@ -33,7 +38,7 @@ func testAlignment(depth int) {
 	fmt.Printf("depth=%d, addr=%#x, mod32=%d\n", depth, addr, addr%32)
 
 	ptr := (*C.__m256i)(unsafe.Pointer(&buf))
-	x := *ptr // can panic if misaligned
+	x := C.aligned_load(ptr) // uses _mm256_load_si256 which requires 32-byte alignment
 	fmt.Printf("Loaded value: %v\n", x)
 }
 
