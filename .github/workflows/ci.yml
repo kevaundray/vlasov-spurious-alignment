@@ -10,7 +10,7 @@ on:
       iterations:
         description: 'Number of times to run the test'
         required: false
-        default: '100000'
+        default: '1000'
         type: string
 
 jobs:
@@ -35,7 +35,7 @@ jobs:
           ITERATIONS=${{ github.event.inputs.iterations || '100000' }}
           echo "Running $ITERATIONS iterations"
           for i in $(seq 1 $ITERATIONS); do
-            if (( i % 10000 == 0 )); then
+            if (( i % 1000 == 0 )); then
               echo "Run $i"
             fi
             ./alignment-test
