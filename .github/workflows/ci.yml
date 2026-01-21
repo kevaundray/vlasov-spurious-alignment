@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      iterations:
+        description: 'Number of times to run the test'
+        required: false
+        default: '100000'
+        type: string
 
 jobs:
   build-and-run:
@@ -26,7 +32,12 @@ jobs:
 
       - name: Run multiple times to trigger potential alignment panic
         run: |
-          for i in $(seq 1 1000); do
-            echo "Run $i"
+          ITERATIONS=${{ github.event.inputs.iterations || '100000' }}
+          echo "Running $ITERATIONS iterations"
+          for i in $(seq 1 $ITERATIONS); do
+            if (( i % 10000 == 0 )); then
+              echo "Run $i"
+            fi
             ./alignment-test
           done
+          echo "Completed all $ITERATIONS runs without panic"
