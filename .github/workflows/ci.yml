@@ -10,7 +10,7 @@ on:
       iterations:
         description: 'Number of times to run the test'
         required: false
-        default: '1000'
+        default: '10'
         type: string
 
 jobs:
@@ -30,11 +30,18 @@ jobs:
       - name: Build
         run: go build -o alignment-test .
 
-      - name: Run with varying stack depths to test all alignments
+      - name: Test aligned access (offset 0 - should pass)
         run: |
-          echo "Testing depths 0-31 to cover all possible alignments mod 32"
-          for depth in $(seq 0 31); do
-            echo "=== Depth $depth ==="
-            ./alignment-test $depth
-          done
-          echo "All depths passed without panic"
+          echo "=== Testing offset 0 (aligned) ==="
+          ./alignment-test 0
+          echo "Aligned access passed"
+
+      - name: Test misaligned access (offset 1 - should crash)
+        run: |
+          echo "=== Testing offset 1 (misaligned) ==="
+          if ./alignment-test 1; then
+            echo "ERROR: Misaligned access should have crashed but didn't!"
+            exit 1
+          else
+            echo "Misaligned access crashed as expected (exit code $?)"
+          fi

@@ -1,12 +1,34 @@
 package main
 
 /*
-#cgo CFLAGS: -mavx2
+#cgo CFLAGS: -mavx2 -O0
 #include <immintrin.h>
+#include <stdio.h>
+#include <stdint.h>
 
 // Use _mm256_load_si256 which REQUIRES 32-byte alignment (crashes on misalignment)
-__m256i aligned_load(__m256i* ptr) {
-    return _mm256_load_si256(ptr);
+__m256i aligned_load(void* ptr) {
+    printf("C: ptr=%p, mod32=%lu\n", ptr, ((uintptr_t)ptr) % 32);
+    return _mm256_load_si256((__m256i*)ptr);
+}
+
+// Test with C stack allocation at various offsets
+void test_c_stack(int offset) {
+    uint8_t buf[64] = {
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
+        0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+        0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
+        0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+        0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30,
+        0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38,
+        0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, 0x40,
+    };
+    void* ptr = &buf[offset];
+    printf("C stack test: offset=%d, ptr=%p, mod32=%lu\n", offset, ptr, ((uintptr_t)ptr) % 32);
+    __m256i x = _mm256_load_si256((__m256i*)ptr);
+    printf("Loaded successfully\n");
+    (void)x;
 }
 */
 import "C"
@@ -17,35 +39,29 @@ import (
 	"unsafe"
 )
 
-//go:noinline
-func testAlignment(depth int) {
-	// Each recursion level shifts the stack
-	if depth > 0 {
-		var pad [1]byte // 1-byte pad to shift stack alignment
-		_ = pad
-		testAlignment(depth - 1)
-		return
+func main() {
+	offset := 1 // default to misaligned
+	if len(os.Args) > 1 {
+		offset, _ = strconv.Atoi(os.Args[1])
 	}
 
-	buf := [32]uint8{
+	fmt.Printf("Testing with offset %d (should crash if offset %% 32 != 0)\n", offset)
+
+	// Method 1: Pass misaligned pointer from Go
+	buf := [64]uint8{
 		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
 		0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
 		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
 		0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
+		0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+		0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30,
+		0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38,
+		0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, 0x40,
 	}
 
-	addr := uintptr(unsafe.Pointer(&buf))
-	fmt.Printf("depth=%d, addr=%#x, mod32=%d\n", depth, addr, addr%32)
+	ptr := unsafe.Pointer(&buf[offset])
+	fmt.Printf("Go: passing ptr at buf[%d], addr=%p, mod32=%d\n", offset, ptr, uintptr(ptr)%32)
 
-	ptr := (*C.__m256i)(unsafe.Pointer(&buf))
-	x := C.aligned_load(ptr) // uses _mm256_load_si256 which requires 32-byte alignment
+	x := C.aligned_load(ptr)
 	fmt.Printf("Loaded value: %v\n", x)
-}
-
-func main() {
-	depth := 0
-	if len(os.Args) > 1 {
-		depth, _ = strconv.Atoi(os.Args[1])
-	}
-	testAlignment(depth)
 }
